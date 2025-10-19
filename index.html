@@ -289,8 +289,8 @@
                 timer.textContent = '';
                 hint.textContent = '';
 
-                // 5초에서 20초 사이 랜덤 시간 생성
-                const randomTime = Math.floor(Math.random() * 15000) + 5000;
+                // 3초에서 10초 사이 랜덤 시간 생성
+                const randomTime = Math.floor(Math.random() * 7000) + 3000;
 
                 timeoutId = setTimeout(() => {
                     playBeep();
@@ -309,28 +309,64 @@
                     timerInterval = setInterval(updateTimer, 1);
                 }, randomTime);
             } else {
-                // 대기 중 클릭 (취소)
-                if (timeoutId) {
-                    clearTimeout(timeoutId);
-                    timeoutId = null;
-                }
+                // 재시작 버튼 클릭
                 isWaiting = false;
+                isActive = false;
                 btn.textContent = '시작';
-                btn.classList.remove('waiting');
+                btn.classList.remove('waiting', 'active');
                 status.textContent = '시작 버튼을 눌러주세요';
+                status.style.color = '#666';
                 timer.textContent = '';
                 hint.textContent = '';
                 btn.disabled = false;
             }
         }
 
-        // 스페이스바 이벤트
+        // 스페이스바 및 클릭 이벤트
         document.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' && isActive) {
+            if (e.code === 'Space') {
                 e.preventDefault();
-                stopTimer();
+                if (isActive) {
+                    stopTimer();
+                } else if (isWaiting) {
+                    handleEarlyClick();
+                }
             }
         });
+
+        document.addEventListener('click', (e) => {
+            if (isWaiting && !e.target.closest('button')) {
+                handleEarlyClick();
+            }
+        });
+
+        function handleEarlyClick() {
+            if (!isWaiting) return;
+            
+            // 타이머 취소
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+            }
+            
+            isWaiting = false;
+            const btn = document.getElementById('actionBtn');
+            const status = document.getElementById('status');
+            const timer = document.getElementById('timer');
+            const hint = document.getElementById('hint');
+            
+            btn.textContent = '다시 시작';
+            btn.classList.remove('waiting');
+            btn.disabled = false;
+            status.textContent = '너무 일찍 눌렀습니다! 다시 시도하세요';
+            status.style.color = '#f5576c';
+            timer.textContent = '';
+            hint.textContent = '';
+            
+            setTimeout(() => {
+                status.style.color = '#666';
+            }, 2000);
+        }
 
         // 페이지 로드 시 기록 불러오기
         loadRecords();
