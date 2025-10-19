@@ -21,6 +21,48 @@
             padding: 20px;
         }
 
+        .login-container {
+            background: white;
+            padding: 50px 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .login-container h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
         .container {
             text-align: center;
             background: white;
@@ -29,6 +71,36 @@
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             max-width: 500px;
             width: 90%;
+            display: none;
+        }
+
+        .container.active {
+            display: block;
+        }
+
+        .user-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .user-name {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .logout-btn {
+            background: #f5576c;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9em;
         }
 
         h1 {
@@ -100,8 +172,6 @@
         .ranking {
             margin-top: 30px;
             text-align: left;
-            max-height: 300px;
-            overflow-y: auto;
         }
 
         .ranking h2 {
@@ -109,6 +179,33 @@
             margin-bottom: 15px;
             text-align: center;
             font-size: 1.5em;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            background: #e9ecef;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .ranking-list {
+            max-height: 300px;
+            overflow-y: auto;
         }
 
         .ranking-item {
@@ -150,6 +247,12 @@
             font-weight: 600;
         }
 
+        .user-id {
+            color: #666;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+
         .hint {
             font-size: 0.9em;
             color: #999;
@@ -158,16 +261,36 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <!-- 로그인 화면 -->
+    <div class="login-container" id="loginContainer">
+        <h1>🎯 반응속도 테스트</h1>
+        <div class="input-group">
+            <label for="userId">사용자 ID</label>
+            <input type="text" id="userId" placeholder="아이디를 입력하세요" maxlength="20">
+        </div>
+        <button onclick="login()">시작하기</button>
+    </div>
+
+    <!-- 게임 화면 -->
+    <div class="container" id="gameContainer">
+        <div class="user-info">
+            <span class="user-name">👤 <span id="currentUser"></span></span>
+            <button class="logout-btn" onclick="logout()">로그아웃</button>
+        </div>
+        
         <h1>🎯 반응속도 테스트</h1>
         <div class="status" id="status">시작 버튼을 눌러주세요</div>
         <div class="timer" id="timer"></div>
         <button id="actionBtn" onclick="handleClick()">시작</button>
         <div class="hint" id="hint"></div>
         
-        <div class="ranking" id="ranking" style="display: none;">
-            <h2>🏆 최고 기록</h2>
-            <div id="rankingList"></div>
+        <div class="ranking" id="ranking">
+            <h2>🏆 랭킹</h2>
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('my')">내 기록</button>
+                <button class="tab" onclick="switchTab('global')">전체 랭킹</button>
+            </div>
+            <div class="ranking-list" id="rankingList"></div>
         </div>
     </div>
 
@@ -178,30 +301,103 @@
         let startTime = 0;
         let timerInterval = null;
         let audioContext = null;
-        let records = [];
+        let currentUserId = null;
+        let currentTab = 'my';
 
-        // 로컬 스토리지에서 기록 불러오기
-        function loadRecords() {
-            const saved = localStorage.getItem('reactionRecords');
-            if (saved) {
-                records = JSON.parse(saved);
-                displayRanking();
+        // 로그인
+        function login() {
+            const userIdInput = document.getElementById('userId');
+            const userId = userIdInput.value.trim();
+            
+            if (!userId) {
+                alert('아이디를 입력해주세요!');
+                return;
             }
+            
+            currentUserId = userId;
+            localStorage.setItem('currentUser', userId);
+            
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('gameContainer').classList.add('active');
+            document.getElementById('currentUser').textContent = userId;
+            
+            loadRecords();
+            displayRanking();
         }
 
-        // 기록 저장
-        function saveRecords() {
-            localStorage.setItem('reactionRecords', JSON.stringify(records));
+        // 로그아웃
+        function logout() {
+            localStorage.removeItem('currentUser');
+            currentUserId = null;
+            
+            document.getElementById('loginContainer').style.display = 'block';
+            document.getElementById('gameContainer').classList.add('active');
+            document.getElementById('gameContainer').classList.remove('active');
+            document.getElementById('userId').value = '';
+        }
+
+        // 페이지 로드 시 자동 로그인 확인
+        window.onload = function() {
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                currentUserId = savedUser;
+                document.getElementById('loginContainer').style.display = 'none';
+                document.getElementById('gameContainer').classList.add('active');
+                document.getElementById('currentUser').textContent = savedUser;
+                loadRecords();
+                displayRanking();
+            }
+        };
+
+        // 기록 저장 (개인 + 전체)
+        function saveRecord(time) {
+            // 개인 기록 저장
+            const userKey = `records_${currentUserId}`;
+            const userRecords = JSON.parse(localStorage.getItem(userKey) || '[]');
+            userRecords.push(time);
+            localStorage.setItem(userKey, JSON.stringify(userRecords));
+            
+            // 전체 랭킹에 저장
+            const globalRecords = JSON.parse(localStorage.getItem('globalRanking') || '[]');
+            globalRecords.push({
+                userId: currentUserId,
+                time: time,
+                timestamp: Date.now()
+            });
+            localStorage.setItem('globalRanking', JSON.stringify(globalRecords));
+        }
+
+        // 기록 불러오기
+        function loadRecords() {
+            displayRanking();
+        }
+
+        // 탭 전환
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            displayRanking();
         }
 
         // 랭킹 표시
         function displayRanking() {
-            const rankingDiv = document.getElementById('ranking');
             const rankingList = document.getElementById('rankingList');
             
-            if (records.length > 0) {
-                rankingDiv.style.display = 'block';
-                rankingList.innerHTML = records
+            if (currentTab === 'my') {
+                // 내 기록
+                const userKey = `records_${currentUserId}`;
+                const userRecords = JSON.parse(localStorage.getItem(userKey) || '[]');
+                
+                if (userRecords.length === 0) {
+                    rankingList.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">아직 기록이 없습니다</div>';
+                    return;
+                }
+                
+                rankingList.innerHTML = userRecords
                     .sort((a, b) => a - b)
                     .slice(0, 10)
                     .map((time, index) => {
@@ -214,6 +410,49 @@
                             <div class="${className}">
                                 <span class="rank">#${index + 1}</span>
                                 <span class="time">${time.toFixed(3)}초</span>
+                            </div>
+                        `;
+                    })
+                    .join('');
+            } else {
+                // 전체 랭킹
+                const globalRecords = JSON.parse(localStorage.getItem('globalRanking') || '[]');
+                
+                if (globalRecords.length === 0) {
+                    rankingList.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">아직 기록이 없습니다</div>';
+                    return;
+                }
+                
+                // 사용자별 최고 기록만 추출
+                const bestRecords = {};
+                globalRecords.forEach(record => {
+                    if (!bestRecords[record.userId] || record.time < bestRecords[record.userId]) {
+                        bestRecords[record.userId] = record.time;
+                    }
+                });
+                
+                // 배열로 변환 후 정렬
+                const sortedRecords = Object.entries(bestRecords)
+                    .map(([userId, time]) => ({ userId, time }))
+                    .sort((a, b) => a.time - b.time)
+                    .slice(0, 10);
+                
+                rankingList.innerHTML = sortedRecords
+                    .map((record, index) => {
+                        let className = 'ranking-item';
+                        if (index === 0) className += ' top1';
+                        else if (index === 1) className += ' top2';
+                        else if (index === 2) className += ' top3';
+                        
+                        const isCurrentUser = record.userId === currentUserId;
+                        
+                        return `
+                            <div class="${className}">
+                                <div>
+                                    <span class="rank">#${index + 1}</span>
+                                    <span class="user-id">${record.userId}${isCurrentUser ? ' (나)' : ''}</span>
+                                </div>
+                                <span class="time">${record.time.toFixed(3)}초</span>
                             </div>
                         `;
                     })
@@ -262,8 +501,7 @@
             document.getElementById('hint').textContent = '';
             
             // 기록 저장
-            records.push(reactionTime);
-            saveRecords();
+            saveRecord(reactionTime);
             displayRanking();
         }
 
@@ -274,13 +512,11 @@
             const hint = document.getElementById('hint');
 
             if (isActive) {
-                // 타이머 활성 중 클릭
                 stopTimer();
                 return;
             }
 
             if (!isWaiting) {
-                // 시작 버튼 클릭
                 isWaiting = true;
                 btn.textContent = '대기 중...';
                 btn.classList.add('waiting');
@@ -289,7 +525,6 @@
                 timer.textContent = '';
                 hint.textContent = '';
 
-                // 3초에서 10초 사이 랜덤 시간 생성
                 const randomTime = Math.floor(Math.random() * 7000) + 3000;
 
                 timeoutId = setTimeout(() => {
@@ -305,11 +540,9 @@
                     btn.disabled = false;
                     hint.textContent = '💡 클릭 또는 스페이스바';
                     
-                    // 타이머 시작
                     timerInterval = setInterval(updateTimer, 1);
                 }, randomTime);
             } else {
-                // 재시작 버튼 클릭
                 isWaiting = false;
                 isActive = false;
                 btn.textContent = '시작';
@@ -322,7 +555,6 @@
             }
         }
 
-        // 스페이스바 및 클릭 이벤트
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space') {
                 e.preventDefault();
@@ -343,7 +575,6 @@
         function handleEarlyClick() {
             if (!isWaiting) return;
             
-            // 타이머 취소
             if (timeoutId) {
                 clearTimeout(timeoutId);
                 timeoutId = null;
@@ -367,9 +598,6 @@
                 status.style.color = '#666';
             }, 2000);
         }
-
-        // 페이지 로드 시 기록 불러오기
-        loadRecords();
     </script>
 </body>
 </html>
