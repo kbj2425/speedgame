@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>반응속도 테스트</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .container {
+            text-align: center;
+            background: white;
+            padding: 60px 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 90%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .status {
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 40px;
+            min-height: 30px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 20px 50px;
+            font-size: 1.3em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .waiting {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .beep-happened {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 반응속도 테스트</h1>
+        <div class="status" id="status">시작 버튼을 눌러주세요</div>
+        <button id="actionBtn" onclick="handleClick()">시작</button>
+    </div>
+
+    <script>
+        let timeoutId = null;
+        let isWaiting = false;
+        let audioContext = null;
+
+        function playBeep() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+
+        function handleClick() {
+            const btn = document.getElementById('actionBtn');
+            const status = document.getElementById('status');
+
+            if (!isWaiting) {
+                // 시작 버튼 클릭
+                isWaiting = true;
+                btn.textContent = '대기 중...';
+                btn.classList.add('waiting');
+                btn.disabled = true;
+                status.textContent = '잠시만 기다려주세요...';
+
+                // 5초에서 20초 사이 랜덤 시간 생성
+                const randomTime = Math.floor(Math.random() * 15000) + 5000;
+
+                timeoutId = setTimeout(() => {
+                    playBeep();
+                    status.textContent = '삐! 소리가 났습니다!';
+                    btn.textContent = '재시작';
+                    btn.classList.remove('waiting');
+                    btn.classList.add('beep-happened');
+                    btn.disabled = false;
+                    isWaiting = false;
+                }, randomTime);
+            } else {
+                // 재시작 버튼 클릭
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+                isWaiting = false;
+                btn.textContent = '시작';
+                btn.classList.remove('waiting', 'beep-happened');
+                status.textContent = '시작 버튼을 눌러주세요';
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
