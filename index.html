@@ -18,6 +18,7 @@
             align-items: center;
             min-height: 100vh;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
         }
 
         .container {
@@ -39,8 +40,19 @@
         .status {
             font-size: 1.2em;
             color: #666;
-            margin-bottom: 40px;
+            margin-bottom: 20px;
             min-height: 30px;
+        }
+
+        .timer {
+            font-size: 3em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 20px 0;
+            min-height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         button {
@@ -53,6 +65,7 @@
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            margin-bottom: 30px;
         }
 
         button:hover {
@@ -74,8 +87,73 @@
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         }
 
-        .beep-happened {
+        .active {
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .ranking {
+            margin-top: 30px;
+            text-align: left;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .ranking h2 {
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 1.5em;
+        }
+
+        .ranking-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 20px;
+            margin: 8px 0;
+            background: #f8f9fa;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .ranking-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+
+        .ranking-item.top1 {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            font-weight: bold;
+        }
+
+        .ranking-item.top2 {
+            background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
+        }
+
+        .ranking-item.top3 {
+            background: linear-gradient(135deg, #cd7f32 0%, #e5a572 100%);
+        }
+
+        .rank {
+            font-weight: bold;
+            color: #667eea;
+            margin-right: 15px;
+        }
+
+        .time {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .hint {
+            font-size: 0.9em;
+            color: #999;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -83,13 +161,65 @@
     <div class="container">
         <h1>🎯 반응속도 테스트</h1>
         <div class="status" id="status">시작 버튼을 눌러주세요</div>
+        <div class="timer" id="timer"></div>
         <button id="actionBtn" onclick="handleClick()">시작</button>
+        <div class="hint" id="hint"></div>
+        
+        <div class="ranking" id="ranking" style="display: none;">
+            <h2>🏆 최고 기록</h2>
+            <div id="rankingList"></div>
+        </div>
     </div>
 
     <script>
         let timeoutId = null;
         let isWaiting = false;
+        let isActive = false;
+        let startTime = 0;
+        let timerInterval = null;
         let audioContext = null;
+        let records = [];
+
+        // 로컬 스토리지에서 기록 불러오기
+        function loadRecords() {
+            const saved = localStorage.getItem('reactionRecords');
+            if (saved) {
+                records = JSON.parse(saved);
+                displayRanking();
+            }
+        }
+
+        // 기록 저장
+        function saveRecords() {
+            localStorage.setItem('reactionRecords', JSON.stringify(records));
+        }
+
+        // 랭킹 표시
+        function displayRanking() {
+            const rankingDiv = document.getElementById('ranking');
+            const rankingList = document.getElementById('rankingList');
+            
+            if (records.length > 0) {
+                rankingDiv.style.display = 'block';
+                rankingList.innerHTML = records
+                    .sort((a, b) => a - b)
+                    .slice(0, 10)
+                    .map((time, index) => {
+                        let className = 'ranking-item';
+                        if (index === 0) className += ' top1';
+                        else if (index === 1) className += ' top2';
+                        else if (index === 2) className += ' top3';
+                        
+                        return `
+                            <div class="${className}">
+                                <span class="rank">#${index + 1}</span>
+                                <span class="time">${time.toFixed(3)}초</span>
+                            </div>
+                        `;
+                    })
+                    .join('');
+            }
+        }
 
         function playBeep() {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -109,9 +239,45 @@
             oscillator.stop(audioContext.currentTime + 0.5);
         }
 
+        function updateTimer() {
+            const elapsed = (Date.now() - startTime) / 1000;
+            document.getElementById('timer').textContent = elapsed.toFixed(3) + '초';
+        }
+
+        function stopTimer() {
+            if (!isActive) return;
+            
+            isActive = false;
+            clearInterval(timerInterval);
+            
+            const reactionTime = (Date.now() - startTime) / 1000;
+            document.getElementById('timer').textContent = reactionTime.toFixed(3) + '초';
+            document.getElementById('status').textContent = '반응시간: ' + reactionTime.toFixed(3) + '초!';
+            
+            const btn = document.getElementById('actionBtn');
+            btn.textContent = '재시작';
+            btn.classList.remove('active');
+            btn.disabled = false;
+            
+            document.getElementById('hint').textContent = '';
+            
+            // 기록 저장
+            records.push(reactionTime);
+            saveRecords();
+            displayRanking();
+        }
+
         function handleClick() {
             const btn = document.getElementById('actionBtn');
             const status = document.getElementById('status');
+            const timer = document.getElementById('timer');
+            const hint = document.getElementById('hint');
+
+            if (isActive) {
+                // 타이머 활성 중 클릭
+                stopTimer();
+                return;
+            }
 
             if (!isWaiting) {
                 // 시작 버튼 클릭
@@ -120,32 +286,54 @@
                 btn.classList.add('waiting');
                 btn.disabled = true;
                 status.textContent = '잠시만 기다려주세요...';
+                timer.textContent = '';
+                hint.textContent = '';
 
                 // 5초에서 20초 사이 랜덤 시간 생성
                 const randomTime = Math.floor(Math.random() * 15000) + 5000;
 
                 timeoutId = setTimeout(() => {
                     playBeep();
-                    status.textContent = '삐! 소리가 났습니다!';
-                    btn.textContent = '재시작';
-                    btn.classList.remove('waiting');
-                    btn.classList.add('beep-happened');
-                    btn.disabled = false;
                     isWaiting = false;
+                    isActive = true;
+                    startTime = Date.now();
+                    
+                    status.textContent = '지금! 클릭하거나 스페이스바를 누르세요!';
+                    btn.textContent = '클릭!';
+                    btn.classList.remove('waiting');
+                    btn.classList.add('active');
+                    btn.disabled = false;
+                    hint.textContent = '💡 클릭 또는 스페이스바';
+                    
+                    // 타이머 시작
+                    timerInterval = setInterval(updateTimer, 1);
                 }, randomTime);
             } else {
-                // 재시작 버튼 클릭
+                // 대기 중 클릭 (취소)
                 if (timeoutId) {
                     clearTimeout(timeoutId);
                     timeoutId = null;
                 }
                 isWaiting = false;
                 btn.textContent = '시작';
-                btn.classList.remove('waiting', 'beep-happened');
+                btn.classList.remove('waiting');
                 status.textContent = '시작 버튼을 눌러주세요';
+                timer.textContent = '';
+                hint.textContent = '';
                 btn.disabled = false;
             }
         }
+
+        // 스페이스바 이벤트
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && isActive) {
+                e.preventDefault();
+                stopTimer();
+            }
+        });
+
+        // 페이지 로드 시 기록 불러오기
+        loadRecords();
     </script>
 </body>
 </html>
